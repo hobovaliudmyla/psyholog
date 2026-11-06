@@ -42,6 +42,13 @@ h1{font-size:1.5rem;margin:0 0 4px}
 .steps b,.steps a{color:inherit;text-decoration:none;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:5px 12px;font-size:.88rem;font-weight:600}
 .steps a:hover,.steps a:focus-visible{background:rgba(255,255,255,.3);outline:2px solid #fff;outline-offset:2px}
 .q{scroll-margin-top:12px}
+.need{font-style:normal;display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;background:#fff1cf;color:#7a4b00;border:1px solid #e7c36b;font-size:.78rem;font-weight:600;vertical-align:middle}
+.q.todo .chips{outline:2px dashed #e7c36b;outline-offset:6px;border-radius:10px}
+.steps a.done{background:#fff;color:#17665a;border-color:#fff}
+.steps a.done i{background:#17665a;color:#fff}
+.card.wait{border-style:dashed;border-color:#e7c36b;background:#fffaf0}
+#out .wait h2{margin:0 0 6px;font-size:1.05rem;color:#7a4b00}
+.wait a{display:inline-block;margin:4px 8px 0 0;padding:4px 12px;border-radius:999px;background:#fff1cf;border:1px solid #e7c36b;color:#7a4b00;text-decoration:none;font-weight:600;font-size:.9rem}
 .q.flash{animation:qf 1.2s ease}@keyframes qf{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 3px var(--accent)}}
 .steps b i,.steps a i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#fff;color:#17665a;font-size:.75rem}
 .site-foot{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin:26px 0 0;padding:18px 16px;border-top:1px solid var(--line);color:var(--mute);font-size:.92rem}
@@ -704,16 +711,23 @@ var STEPS = [
 ];
 var current = null;
 
+function goStep(n){
+  var q = document.getElementById("q" + n);
+  if (!q) return;
+  try { q.scrollIntoView({behavior:"smooth", block:"start"}); } catch(x){ q.scrollIntoView(); }
+  q.classList.remove("flash"); void q.offsetWidth; q.classList.add("flash");
+  var c = q.querySelector(".chip"); if (c) { try { c.focus({preventScroll:true}); } catch(x){} }
+}
 Array.prototype.forEach.call(document.querySelectorAll(".steps a"), function(a){
-  a.addEventListener("click", function(e){
-    e.preventDefault();
-    var q = document.getElementById("q" + a.getAttribute("data-s"));
-    if (!q) return;
-    try { q.scrollIntoView({behavior:"smooth", block:"start"}); } catch(x){ q.scrollIntoView(); }
-    q.classList.remove("flash"); void q.offsetWidth; q.classList.add("flash");
-    var c = q.querySelector(".chip"); if (c) { try { c.focus({preventScroll:true}); } catch(x){} }
-  });
+  a.addEventListener("click", function(e){ e.preventDefault(); goStep(a.getAttribute("data-s")); });
 });
+function markSteps(){
+  var pills = document.querySelectorAll(".steps a");
+  STEPS.forEach(function(s, i){
+    var ok = !!sel[s.key];
+    if (pills[i]) { pills[i].classList.toggle("done", ok); pills[i].querySelector("i").textContent = ok ? "\u2713" : String(i+1); }
+  });
+}
 
 function renderForm(){
   var f = document.getElementById("form");
@@ -721,7 +735,8 @@ function renderForm(){
   STEPS.forEach(function(s, i){
     var q = document.createElement("div"); q.className = "q"; q.id = "q" + (i+1);
     var h = document.createElement("h2");
-    h.innerHTML = "<span>" + (i+1) + "</span>" + s.title;
+    h.innerHTML = "<span>" + (i+1) + "</span>" + s.title + (sel[s.key] ? "" : '<em class="need">обери один варіант</em>');
+    if (!sel[s.key]) q.className += " todo";
     q.appendChild(h);
     var c = document.createElement("div"); c.className = "chips";
     Object.keys(s.src).forEach(function(k){
@@ -748,13 +763,18 @@ function renderForm(){
   f.appendChild(bar);
   var hp = document.createElement("p"); hp.className = "hint"; hp.style.margin = "8px 0 0"; hp.appendChild(hint);
   f.appendChild(hp);
+  markSteps();
 }
 
 function li(arr){ return "<ul>" + arr.map(function(x){ return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
 
 function update(){
   var out = document.getElementById("out");
-  if(!(sel.age && sel.prob && sel.fmt && sel.res)){ out.innerHTML = ""; current = null; return; }
+  if(!(sel.age && sel.prob && sel.fmt && sel.res)){
+    var miss = STEPS.map(function(s, i){ return sel[s.key] ? "" : '<a href="#q' + (i+1) + '" data-s="' + (i+1) + '">' + (i+1) + '. ' + ["Вік","Запит","Формат","Результат"][i] + '</a>'; }).join("");
+    out.innerHTML = '<div class="card wait"><h2>Структура ще не з’явилась</h2><p class="hint" style="margin:0">Вона з’явиться тут, коли обереш усі чотири пункти. Ще не обрано:</p><div>' + miss + '</div></div>';
+    Array.prototype.forEach.call(out.querySelectorAll(".wait a"), function(a){ a.addEventListener("click", function(e){ e.preventDefault(); goStep(a.getAttribute("data-s")); }); });
+    current = null; return; }
   var m = buildPlan(sel); current = m;
   var h = "";
   h += '<div class="card"><div class="passport">' +
